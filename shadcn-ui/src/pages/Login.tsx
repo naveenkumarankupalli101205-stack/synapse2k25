@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,27 +20,8 @@ export default function Login() {
   const [error, setError] = useState('')
   const [resetEmailSent, setResetEmailSent] = useState(false)
   
-  const { signIn, resetPassword, isDemoMode, user, profile, profileLoading } = useAuth()
+  const { signIn, resetPassword, isDemoMode } = useAuth()
   const navigate = useNavigate()
-
-  // Handle role-based redirection after login
-  useEffect(() => {
-    if (user && user.email_confirmed_at && profile && !profileLoading) {
-      console.log('Redirecting user with role:', profile.role)
-      
-      if (profile.role === 'teacher') {
-        navigate('/teacher-dashboard', { replace: true })
-        toast.success(`Welcome back, ${profile.name}! 👨‍🏫`)
-      } else if (profile.role === 'student') {
-        navigate('/student-dashboard', { replace: true })
-        toast.success(`Welcome back, ${profile.name}! 🎓`)
-      } else {
-        // Handle invalid role
-        setError('Invalid user role. Please contact support.')
-        toast.error('Invalid user role detected')
-      }
-    }
-  }, [user, profile, profileLoading, navigate])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -74,8 +55,8 @@ export default function Login() {
         }
         toast.error('Login failed')
       } else {
-        // Don't show success message here - it will be shown after profile is loaded and redirect happens
-        console.log('Login successful, waiting for profile data...')
+        // Success - PublicRoute will handle the redirect to dashboard
+        toast.success('Login successful! Redirecting...')
       }
     } catch (err) {
       setError('An unexpected error occurred')
@@ -109,30 +90,6 @@ export default function Login() {
       setError('Failed to send reset email')
       toast.error('Failed to send reset email')
     }
-  }
-
-  // Show loading state while profile is being fetched after successful login
-  if (user && user.email_confirmed_at && profileLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="text-center"
-        >
-          <Card className="w-full max-w-md">
-            <CardContent className="p-8">
-              <div className="flex flex-col items-center space-y-4">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Loading your dashboard...</h2>
-                <p className="text-gray-600">Please wait while we set up your personalized experience.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    )
   }
 
   return (

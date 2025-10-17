@@ -190,6 +190,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setSession(null);
     setProfile(null);
+    
+    // Clear any cached data and redirect to landing page
+    window.history.replaceState(null, '', '/');
   };
 
   const resetPassword = async (email: string) => {

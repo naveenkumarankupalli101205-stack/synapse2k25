@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { PublicRoute } from '@/components/PublicRoute';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -29,11 +30,33 @@ const App = () => (
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            {/* Public Routes - Redirect to dashboard if already logged in */}
+            <Route 
+              path="/" 
+              element={
+                <PublicRoute>
+                  <Landing />
+                </PublicRoute>
+              } 
+            />
+            <Route 
+              path="/login" 
+              element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              } 
+            />
+            <Route 
+              path="/register" 
+              element={
+                <PublicRoute>
+                  <Register />
+                </PublicRoute>
+              } 
+            />
             
-            {/* Teacher Routes */}
+            {/* Protected Teacher Routes */}
             <Route 
               path="/teacher-dashboard" 
               element={
@@ -43,7 +66,7 @@ const App = () => (
               } 
             />
             
-            {/* Student Routes */}
+            {/* Protected Student Routes */}
             <Route 
               path="/student-dashboard" 
               element={
