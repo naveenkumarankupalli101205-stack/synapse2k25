@@ -5,7 +5,7 @@ import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
 import { useProfile } from '@/hooks/useProfile'
 import { supabase } from '@/utils/supabase'
-import { Course, Assignment, Submission, Enrollment } from '@/types/database'
+import { Course, Assignment, Submission } from '@/types/database'
 import { motion } from 'framer-motion'
 import { BookOpen, ClipboardList, Award, TrendingUp, Eye, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -39,22 +39,23 @@ export default function StudentDashboard() {
 
       if (enrollmentsError) throw enrollmentsError
 
-      const courses = enrollmentsData?.map(e => ({
-        ...e.courses,
-        teacher: e.courses?.profiles
-      })) || []
+      const courses =
+        enrollmentsData?.map((e) => ({
+          ...e.courses,
+          teacher: e.courses?.profiles
+        })) || []
 
       // Fetch assignments for enrolled courses
-      const courseIds = courses.map(c => c.id)
+      const courseIds = courses.map((c) => c.id)
       let assignmentsData = []
-      
+
       if (courseIds.length > 0) {
         const { data, error: assignmentsError } = await supabase
           .from('assignments')
           .select(`
             *,
-            courses(title),
-            submissions(id, grade, submitted_at)
+            course(title),
+            submission(id, grade, submitted_at)
           `)
           .in('course_id', courseIds)
           .order('due_date', { ascending: true })
@@ -71,7 +72,7 @@ export default function StudentDashboard() {
           *,
           assignments(
             title,
-            courses(title)
+            course(title)
           )
         `)
         .eq('student_id', profile?.id)
@@ -92,11 +93,17 @@ export default function StudentDashboard() {
     }
   }
 
-  const completedAssignments = submissions.filter(s => s.grade !== null).length
-  const pendingAssignments = assignments.filter(a => !a.submissions || a.submissions.length === 0).length
-  const averageGrade = submissions.length > 0 
-    ? Math.round(submissions.filter(s => s.grade !== null).reduce((sum, s) => sum + (s.grade || 0), 0) / submissions.filter(s => s.grade !== null).length)
-    : 0
+  const completedAssignments = submissions.filter((s) => s.grade !== null).length
+  const pendingAssignments = assignments.filter((a) => !a.submission).length
+  const averageGrade =
+    submissions.length > 0
+      ? Math.round(
+          submissions
+            .filter((s) => s.grade !== null)
+            .reduce((sum, s) => sum + (s.grade || 0), 0) /
+            submissions.filter((s) => s.grade !== null).length
+        )
+      : 0
 
   const stats = [
     {
@@ -136,7 +143,7 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <Navbar />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <motion.div
@@ -148,9 +155,7 @@ export default function StudentDashboard() {
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
             Welcome back, {profile?.name}! 🎓
           </h1>
-          <p className="text-lg text-gray-600">
-            Continue your learning journey
-          </p>
+          <p className="text-lg text-gray-600">Continue your learning journey</p>
         </motion.div>
 
         {/* Stats Grid */}
@@ -199,14 +204,10 @@ export default function StudentDashboard() {
                     <BookOpen className="w-5 h-5" />
                     <span>My Courses</span>
                   </CardTitle>
-                  <CardDescription>
-                    Continue your learning
-                  </CardDescription>
+                  <CardDescription>Continue your learning</CardDescription>
                 </div>
                 <Button asChild size="sm" variant="outline">
-                  <Link to="/student/courses">
-                    Browse Courses
-                  </Link>
+                  <Link to="/student/courses">Browse Courses</Link>
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -217,7 +218,10 @@ export default function StudentDashboard() {
                   </div>
                 ) : (
                   enrolledCourses.slice(0, 3).map((course) => (
-                    <div key={course.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div
+                      key={course.id}
+                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                    >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-semibold text-gray-900">{course.title}</h3>
                         <Button asChild size="sm" variant="outline">
@@ -257,9 +261,7 @@ export default function StudentDashboard() {
                   <ClipboardList className="w-5 h-5" />
                   <span>Upcoming Assignments</span>
                 </CardTitle>
-                <CardDescription>
-                  Complete your assignments on time
-                </CardDescription>
+                <CardDescription>Complete your assignments on time</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {assignments.length === 0 ? (
@@ -269,15 +271,18 @@ export default function StudentDashboard() {
                   </div>
                 ) : (
                   assignments.map((assignment) => {
-                    const isSubmitted = assignment.submissions && assignment.submissions.length > 0
-                    const submission = assignment.submissions?.[0]
-                    
+                    const isSubmitted = !!assignment.submission
+                    const submission = assignment.submission
+
                     return (
-                      <div key={assignment.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div
+                        key={assignment.id}
+                        className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      >
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <h4 className="font-medium text-gray-900">{assignment.title}</h4>
-                            <p className="text-sm text-gray-600">{assignment.courses?.title}</p>
+                            <p className="text-sm text-gray-600">{assignment.course?.title}</p>
                           </div>
                           {isSubmitted ? (
                             <div className="text-right">

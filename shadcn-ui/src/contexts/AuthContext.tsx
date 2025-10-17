@@ -1,16 +1,20 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase, isDemoMode } from '@/utils/supabase'
+import { Profile } from '@/types/database'
 
 interface AuthContextType {
   user: User | null
   session: Session | null
+  profile: Profile | null
   loading: boolean
+  profileLoading: boolean
   signUp: (email: string, password: string, fullName: string, role: 'teacher' | 'student') => Promise<{ error: AuthError | null }>
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>
   isDemoMode: boolean
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -26,30 +30,100 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileLoading, setProfileLoading] = useState(false)
+
+  const fetchProfile = async (userId: string): Promise<Profile | null> => {
+    try {
+      setProfileLoading(true)
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.error('Error fetching profile:', error)
+        return null
+      }
+
+      return data
+    } catch (error) {
+      console.error('Profile fetch error:', error)
+      return null
+    } finally {
+      setProfileLoading(false)
+    }
+  }
+
+  const refreshProfile = async () => {
+    if (user) {
+      const profileData = await fetchProfile(user.id)
+      setProfile(profileData)
+    }
+  }
 
   useEffect(() => {
     if (isDemoMode) {
       // In demo mode, simulate no user session
       setSession(null)
       setUser(null)
+      setProfile(null)
       setLoading(false)
       return
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Session error:', error)
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+        } else {
+          setSession(session)
+          setUser(session?.user ?? null)
+          
+          // Fetch profile if user exists and is verified
+          if (session?.user && session.user.email_confirmed_at) {
+            const profileData = await fetchProfile(session.user.id)
+            setProfile(profileData)
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error)
+        setSession(null)
+        setUser(null)
+        setProfile(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    initializeAuth()
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email)
+      
       setSession(session)
       setUser(session?.user ?? null)
+      
+      if (session?.user && session.user.email_confirmed_at) {
+        // User is authenticated and verified, fetch profile
+        const profileData = await fetchProfile(session.user.id)
+        setProfile(profileData)
+      } else {
+        // No user or unverified, clear profile
+        setProfile(null)
+      }
+      
       setLoading(false)
     })
 
@@ -102,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!isDemoMode) {
       await supabase.auth.signOut()
     }
+    setProfile(null)
   }
 
   const resetPassword = async (email: string) => {
@@ -124,12 +199,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     user,
     session,
+    profile,
     loading,
+    profileLoading,
     signUp,
     signIn,
     signOut,
     resetPassword,
     isDemoMode,
+    refreshProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

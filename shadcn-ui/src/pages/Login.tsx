@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,11 +6,9 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/AuthContext'
-import { useProfile } from '@/hooks/useProfile'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useEffect } from 'react'
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -22,20 +20,27 @@ export default function Login() {
   const [error, setError] = useState('')
   const [resetEmailSent, setResetEmailSent] = useState(false)
   
-  const { signIn, resetPassword, isDemoMode, user } = useAuth()
-  const { profile } = useProfile()
+  const { signIn, resetPassword, isDemoMode, user, profile, profileLoading } = useAuth()
   const navigate = useNavigate()
 
-  // Redirect based on role after login
+  // Handle role-based redirection after login
   useEffect(() => {
-    if (user && user.email_confirmed_at && profile) {
+    if (user && user.email_confirmed_at && profile && !profileLoading) {
+      console.log('Redirecting user with role:', profile.role)
+      
       if (profile.role === 'teacher') {
-        navigate('/teacher-dashboard')
+        navigate('/teacher-dashboard', { replace: true })
+        toast.success(`Welcome back, ${profile.name}! 👨‍🏫`)
       } else if (profile.role === 'student') {
-        navigate('/student-dashboard')
+        navigate('/student-dashboard', { replace: true })
+        toast.success(`Welcome back, ${profile.name}! 🎓`)
+      } else {
+        // Handle invalid role
+        setError('Invalid user role. Please contact support.')
+        toast.error('Invalid user role detected')
       }
     }
-  }, [user, profile, navigate])
+  }, [user, profile, profileLoading, navigate])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -69,8 +74,8 @@ export default function Login() {
         }
         toast.error('Login failed')
       } else {
-        toast.success('Welcome back!')
-        // Navigation will be handled by useEffect
+        // Don't show success message here - it will be shown after profile is loaded and redirect happens
+        console.log('Login successful, waiting for profile data...')
       }
     } catch (err) {
       setError('An unexpected error occurred')
@@ -104,6 +109,30 @@ export default function Login() {
       setError('Failed to send reset email')
       toast.error('Failed to send reset email')
     }
+  }
+
+  // Show loading state while profile is being fetched after successful login
+  if (user && user.email_confirmed_at && profileLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="text-center"
+        >
+          <Card className="w-full max-w-md">
+            <CardContent className="p-8">
+              <div className="flex flex-col items-center space-y-4">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <h2 className="text-xl font-semibold text-gray-900">Loading your dashboard...</h2>
+                <p className="text-gray-600">Please wait while we set up your personalized experience.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    )
   }
 
   return (
@@ -159,6 +188,7 @@ export default function Login() {
                     required
                     className="rounded-lg"
                     placeholder="Enter your email"
+                    disabled={loading}
                   />
                 </div>
 
@@ -174,6 +204,7 @@ export default function Login() {
                       required
                       className="rounded-lg pr-10"
                       placeholder="Enter your password"
+                      disabled={loading}
                     />
                     <Button
                       type="button"
@@ -181,6 +212,7 @@ export default function Login() {
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
+                      disabled={loading}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -193,7 +225,7 @@ export default function Login() {
                     variant="link"
                     className="px-0 text-sm"
                     onClick={handleResetPassword}
-                    disabled={isDemoMode}
+                    disabled={isDemoMode || loading}
                   >
                     Forgot password?
                   </Button>
@@ -210,7 +242,14 @@ export default function Login() {
                   className="w-full rounded-lg"
                   disabled={loading || isDemoMode}
                 >
-                  {loading ? 'Signing In...' : 'Sign In'}
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signing In...
+                    </>
+                  ) : (
+                    'Sign In'
+                  )}
                 </Button>
               </form>
             )}
