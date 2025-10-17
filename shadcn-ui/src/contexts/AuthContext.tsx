@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase, isDemoMode } from '@/utils/supabase'
@@ -156,28 +157,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     if (isDemoMode) {
-      return { 
-        error: { 
+      return {
+        error: {
           message: 'Demo mode: Please set up Supabase to enable authentication',
           name: 'DemoModeError',
           status: 400
-        } as AuthError 
+        } as AuthError
       }
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
-    return { error }
+
+    if (error) {
+      return { error }
+    }
+
+    if (data.user) {
+      const profileData = await fetchProfile(data.user.id)
+      setProfile(profileData)
+    }
+
+    return { error: null }
   }
 
   const signOut = async () => {
     if (!isDemoMode) {
-      await supabase.auth.signOut()
+      await supabase.auth.signOut();
     }
-    setProfile(null)
-  }
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+  };
 
   const resetPassword = async (email: string) => {
     if (isDemoMode) {
